@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: jaiho
+      POSTGRES_USER: jaiho
+      POSTGRES_PASSWORD: jaiho
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jaiho -d jaiho"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Only started with: docker compose --profile app up --build
+  # (Spring Boot starts just the database when you run the app from IntelliJ.)
+  app:
+    build: .
+    profiles: [app]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jaiho
+      SPRING_DATASOURCE_USERNAME: jaiho
+      SPRING_DATASOURCE_PASSWORD: jaiho
+      # When the app runs in Docker, reach ZAP by service name and let ZAP reach
+      # the app by its service name too.
+      SCANNER_ZAP_BASE_URL: http://zap:8090
+      SCANNER_ZAP_TARGET_HOST_OVERRIDE: app
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Active-scan engine (OWASP ZAP), used for the optional "active scan" option.
+  # Start it with:  docker compose --profile scanner up -d zap
+  # The app connects to its API on 8090; ZAP reaches a host app via
+  # host.docker.internal.
+  zap:
+    image: zaproxy/zap-stable:latest
+    profiles: [scanner]
+    command: >
+      zap.sh -daemon -host 0.0.0.0 -port 8090
+      -config api.disablekey=true
+      -config api.addrs.addr.name=.*
+      -config api.addrs.addr.regex=true
+    ports:
+      - "8090:8090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  postgres-data:

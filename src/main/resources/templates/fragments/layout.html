@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+<header th:fragment="header" class="site-header">
+    <a th:href="@{/}" class="brand">JaiHo</a>
+    <nav>
+        <a th:href="@{/}">Home</a>
+        <th:block sec:authorize="isAnonymous()">
+            <a th:href="@{/login}">Log in</a>
+            <a th:href="@{/register}">Register</a>
+        </th:block>
+        <th:block sec:authorize="isAuthenticated()">
+            <a th:href="@{/scan}">Security scan</a>
+            <a th:href="@{/account}">My account</a>
+            <form th:action="@{/logout}" method="post">
+                <button type="submit">Log out</button>
+            </form>
+        </th:block>
+    </nav>
+</header>
+
+<footer th:fragment="footer" class="site-footer">
+    <p>&copy; 2026 JaiHo</p>
+</footer>
+</body>
+</html>

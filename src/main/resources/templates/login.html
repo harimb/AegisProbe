@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Log in · JaiHo</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<div th:replace="~{fragments/layout :: header}"></div>
+<main>
+    <h1>Log in</h1>
+    <p th:if="${param.error}" class="message error">Wrong username or password.</p>
+    <p th:if="${param.logout}" class="message">You've been logged out.</p>
+    <p th:if="${param.registered}" class="message">Account created. You can log in now.</p>
+
+    <form th:action="@{/login}" method="post" class="form">
+        <label>Username <input type="text" name="username" required autofocus></label>
+        <label>Password <input type="password" name="password" required></label>
+        <button type="submit">Log in</button>
+    </form>
+    <p>No account yet? <a th:href="@{/register}">Register</a></p>
+</main>
+<div th:replace="~{fragments/layout :: footer}"></div>
+</body>
+</html>

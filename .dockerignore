@@ -1,0 +1,9 @@
+target/
+out/
+.idea/
+*.iml
+.git/
+.DS_Store
+HELP.md
+compose.yaml
+Dockerfile
