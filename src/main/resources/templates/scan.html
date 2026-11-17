@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Security scan · JaiHo</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <script th:src="@{/js/scan.js}" defer></script>
+</head>
+<body>
+<div th:replace="~{fragments/layout :: header}"></div>
+<main>
+    <h1>Security scan</h1>
+    <p class="muted">Scan an app you control for common OWASP issues. Targets are limited to
+        hosts on the allowlist.</p>
+
+    <p th:if="${error}" th:text="${error}" class="message error" style="margin-bottom:1rem;"></p>
+    <p th:if="${message}" th:text="${message}" class="message" style="margin-bottom:1rem;"></p>
+
+    <div class="card" style="margin-bottom:1.5rem;">
+        <form th:action="@{/scan}" method="post" class="form form-wide">
+            <label>Target URL
+                <input type="url" name="targetUrl" th:value="${targetUrl}"
+                       placeholder="http://localhost:8080" required autofocus>
+            </label>
+            <label class="checkbox">
+                <input type="checkbox" name="authorized" value="true" required>
+                <span>I own this target or am authorized to test it.</span>
+            </label>
+            <label class="checkbox">
+                <input type="checkbox" name="activeScan" value="true">
+                <span>Also run an active scan (OWASP ZAP) — sends crafted requests;
+                    needs the scanner profile running.</span>
+            </label>
+            <button type="submit">Start scan</button>
+        </form>
+        <p class="muted small" style="margin:1rem 0 0;">Allowed hosts:
+            <span th:each="h, i : ${allowedHosts}">
+                <code th:text="${h}">localhost</code><span th:if="${!i.last}">, </span>
+            </span>
+        </p>
+    </div>
+
+    <section th:if="${!scans.isEmpty()}">
+        <h2>Recent scans</h2>
+        <form th:action="@{/scan/delete}" method="post" id="scan-list-form">
+            <div class="list-toolbar">
+                <span class="muted small" id="selected-count">None selected</span>
+                <button type="submit" id="delete-selected" class="btn btn-danger btn-sm" disabled>
+                    Delete selected
+                </button>
+            </div>
+            <div class="card" style="padding:0;">
+                <table class="scan-table">
+                    <thead>
+                    <tr>
+                        <th class="col-check"><input type="checkbox" id="select-all" aria-label="Select all scans"></th>
+                        <th>Target</th><th>Status</th><th>Started</th><th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="s : ${scans}">
+                        <td class="col-check">
+                            <input type="checkbox" name="ids" th:value="${s.id}" class="row-check"
+                                   th:attr="aria-label='Select scan ' + ${s.id}">
+                        </td>
+                        <td><code th:text="${s.targetUrl}">http://localhost:8080</code></td>
+                        <td><span class="badge" th:classappend="'status-' + ${s.status}"
+                                  th:text="${s.status}">DONE</span></td>
+                        <td class="muted" th:text="${#temporals.format(s.startedAt, 'yyyy-MM-dd HH:mm')}">—</td>
+                        <td><a class="btn btn-secondary btn-sm" th:href="@{'/scan/' + ${s.id}}">View</a></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </section>
+</main>
+<div th:replace="~{fragments/layout :: footer}"></div>
+</body>
+</html>

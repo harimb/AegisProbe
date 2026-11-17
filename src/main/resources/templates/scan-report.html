@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Scan report · JaiHo</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+    <script th:src="@{/js/scan-report.js}" defer></script>
+</head>
+<body>
+<div th:replace="~{fragments/layout :: header}"></div>
+<main th:attr="data-scan-id=${scan.id}, data-status=${scan.status}">
+
+    <div class="report-head">
+        <div>
+            <h1>Scan report</h1>
+            <div class="meta">
+                <span><code th:text="${scan.targetUrl}">http://localhost:8080</code></span>
+                <span th:text="${scan.endpointsSeen} + ' endpoints scanned'">0 endpoints</span>
+                <span th:text="'Started ' + ${#temporals.format(scan.startedAt, 'yyyy-MM-dd HH:mm')}">Started</span>
+            </div>
+        </div>
+        <span class="badge" th:classappend="'status-' + ${scan.status}" th:text="${scan.status}">DONE</span>
+    </div>
+
+    <!-- In-progress: scan-report.js polls /status and updates the bar + log live. -->
+    <div th:if="${scan.status.name() == 'PENDING' or scan.status.name() == 'RUNNING'}"
+         class="card" id="running-banner">
+        <div class="progress-head">
+            <strong id="phase">Starting…</strong>
+            <span id="percent-label" class="muted">0%</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+        <h3 class="log-title">Activity log</h3>
+        <pre class="scan-log" id="scan-log">Waiting for the scan to report…</pre>
+    </div>
+
+    <div th:if="${scan.status.name() == 'FAILED'}" class="message error">
+        Scan failed: <span th:text="${scan.errorMessage}">error</span>
+    </div>
+
+    <div th:if="${scan.status.name() == 'DONE'}">
+
+        <!-- empty result -->
+        <div th:if="${summary.total() == 0}" class="card empty-state">
+            <h2 style="margin-top:0;">No issues found by the passive checks</h2>
+            <p class="muted">That is not a clean bill of health — deeper (active) scanning is a separate step.</p>
+        </div>
+
+        <div th:unless="${summary.total() == 0}">
+            <section class="summary">
+                <div class="card chart-card">
+                    <h3>By severity</h3>
+                    <div class="donut-wrap">
+                        <canvas id="sevChart" width="160" height="160"></canvas>
+                        <div class="donut-center">
+                            <span class="n" th:text="${summary.total()}">0</span>
+                            <span class="l">findings</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tiles">
+                    <div class="tile sev-HIGH"><span class="num" th:text="${summary.high}">0</span><span class="lbl">High</span></div>
+                    <div class="tile sev-MEDIUM"><span class="num" th:text="${summary.medium}">0</span><span class="lbl">Medium</span></div>
+                    <div class="tile sev-LOW"><span class="num" th:text="${summary.low}">0</span><span class="lbl">Low</span></div>
+                    <div class="tile sev-INFO"><span class="num" th:text="${summary.info}">0</span><span class="lbl">Info</span></div>
+                </div>
+
+                <div class="card cat-chart-card">
+                    <h3>By OWASP category</h3>
+                    <div class="cat-chart-wrap"><canvas id="catChart"></canvas></div>
+                </div>
+            </section>
+
+            <div class="report-controls">
+                <input type="text" id="filter" placeholder="Search findings…" class="filter-input">
+                <div class="chips">
+                    <span class="chip active" data-sev="ALL">All</span>
+                    <span class="chip" data-sev="HIGH">High</span>
+                    <span class="chip" data-sev="MEDIUM">Medium</span>
+                    <span class="chip" data-sev="LOW">Low</span>
+                    <span class="chip" data-sev="INFO">Info</span>
+                </div>
+                <div class="exports">
+                    <a th:href="@{'/scan/' + ${scan.id} + '/export.xlsx'}" class="export-link">Export Excel</a>
+                    <a th:href="@{'/scan/' + ${scan.id} + '/export.json'}" class="export-link">Export JSON</a>
+                </div>
+            </div>
+
+            <div class="card findings-card">
+                <table class="findings-table">
+                    <thead>
+                    <tr>
+                        <th class="col-sev">Severity</th>
+                        <th>Finding</th>
+                        <th class="col-cat">OWASP category</th>
+                        <th class="col-loc">Location</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <th:block th:each="f : ${summary.findings()}">
+                        <tr class="finding-row" th:classappend="'sev-' + ${f.severity}"
+                            th:attr="data-sev=${f.severity}, data-cat=${f.owaspCategory},
+                                     data-text=${#strings.toLowerCase(f.title + ' ' + f.owaspCategory + ' ' + f.url)}">
+                            <td class="col-sev">
+                                <span class="badge" th:classappend="'sev-' + ${f.severity}" th:text="${f.severity}">MEDIUM</span>
+                            </td>
+                            <td>
+                                <span class="caret">&#9656;</span>
+                                <span class="finding-title" th:text="${f.title}">Finding title</span>
+                            </td>
+                            <td class="col-cat" th:text="${f.owaspCategory}">A05 Security Misconfiguration</td>
+                            <td class="col-loc">
+                                <span class="method" th:text="${f.method}">GET</span>
+                                <code th:text="${f.url}">/</code>
+                            </td>
+                        </tr>
+                        <tr class="detail-row" hidden>
+                            <td colspan="4">
+                                <div class="detail-content">
+                                    <div class="row" th:if="${f.evidence}">
+                                        <span class="label">Evidence</span>
+                                        <span class="val" th:text="${f.evidence}">evidence</span>
+                                    </div>
+                                    <div class="row" th:if="${f.remediation}">
+                                        <span class="label">Fix</span>
+                                        <span class="val" th:text="${f.remediation}">fix</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </th:block>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-footer">
+                <span class="muted" id="page-info">&nbsp;</span>
+                <div class="page-controls">
+                    <label class="muted">Rows per page
+                        <select id="page-size">
+                            <option value="10" selected>10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="all">All</option>
+                        </select>
+                    </label>
+                    <button type="button" id="prev-page" class="pager-btn">‹ Prev</button>
+                    <span id="page-label" class="muted">Page 1 of 1</span>
+                    <button type="button" id="next-page" class="pager-btn">Next ›</button>
+                </div>
+            </div>
+        </div>
+
+        <details class="card log-card">
+            <summary>Activity log</summary>
+            <pre class="scan-log" id="completed-log">Loading…</pre>
+        </details>
+    </div>
+
+    <p style="margin-top:1.5rem;"><a th:href="@{/scan}">← New scan</a></p>
+</main>
+<div th:replace="~{fragments/layout :: footer}"></div>
+</body>
+</html>
